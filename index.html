@@ -8,7 +8,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#060910;color:#e8e0d0;font-family:'DM Sans',sans-serif}
-canvas{position:fixed;inset:0;clip-path:inset(52px 0 160px 0)}
+canvas{position:fixed;inset:0;clip-path:inset(52px 0 180px 0)}
 
 /* ── Vignette overlay ── */
 body::after{
@@ -96,11 +96,11 @@ body::before{
   border-bottom:1px solid rgba(212,145,90,.12);
 }
 #scene-name{
-  font-family:'Crimson Pro',serif;font-size:1rem;font-style:italic;
+  font-family:'Crimson Pro',serif;font-size:1.2rem;font-style:italic;
   color:rgba(212,145,90,.75);letter-spacing:.02em;
 }
 #scene-counter{
-  font-size:.6rem;letter-spacing:.2em;color:rgba(232,224,208,.28);
+  font-size:.75rem;letter-spacing:.2em;color:rgba(232,224,208,.28);
   text-transform:uppercase;
 }
 
@@ -283,13 +283,14 @@ function pill(x,y,w,h,r,fill,stroke,lw=1.5,blur=0){
   if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
   ctx.restore();
 }
+const FS=1.45; // global font scale — increase all text sizes
 function txt(t,x,y,col,sz,align='center',w=400){
-  ctx.save();ctx.font=`${w} ${sz}px 'DM Sans',sans-serif`;
+  ctx.save();ctx.font=`${w} ${sz*FS}px 'DM Sans',sans-serif`;
   ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline='middle';
   ctx.fillText(t,x,y);ctx.restore();
 }
 function serif(t,x,y,col,sz,italic=false){
-  ctx.save();ctx.font=`${italic?'italic ':''}300 ${sz}px 'Crimson Pro',serif`;
+  ctx.save();ctx.font=`${italic?'italic ':''}300 ${sz*FS}px 'Crimson Pro',serif`;
   ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText(t,x,y);ctx.restore();
 }
@@ -661,7 +662,7 @@ const SCENES=[
 
       // Label names bigger
       ctx.save();
-      ctx.font=`300 ${clamp(W*.028,26,38)}px 'Crimson Pro',serif`;
+      ctx.font=`300 ${clamp(W*.038,36,52)}px 'Crimson Pro',serif`;
       ctx.fillStyle=it.c;ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(it.l,it.x,cy+108);ctx.restore();
       txt(it.s1,it.x,cy+132,rgba(it.c,.85),12,'center',400);
@@ -700,7 +701,7 @@ const SCENES=[
     glow(augX,mY-120+lBob,130,P.rose,.18);
     ctx.save();ctx.shadowColor=P.rose;ctx.shadowBlur=32;
     pill(augX-110,mY-172+lBob,220,84,20,P.dark,P.rose,3,0);ctx.restore();
-    ctx.save();ctx.font=`300 22px 'Crimson Pro',serif`;ctx.fillStyle=P.rose;
+    ctx.save();ctx.font=`300 30px 'Crimson Pro',serif`;ctx.fillStyle=P.rose;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('Large Subunit',augX,mY-130+lBob);ctx.restore();
 
@@ -1002,7 +1003,7 @@ const SCENES=[
 
     // Main thank you text
     ctx.save();
-    ctx.font=`300 ${clamp(W*.072,60,110)}px 'Crimson Pro',serif`;
+    ctx.font=`300 ${clamp(W*.085,72,130)}px 'Crimson Pro',serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     // Gradient text
     const tg=ctx.createLinearGradient(cx-200,cy-60,cx+200,cy+60);
@@ -1014,7 +1015,7 @@ const SCENES=[
 
     // Italic subtitle
     ctx.save();
-    ctx.font=`italic 300 ${clamp(W*.022,17,26)}px 'Crimson Pro',serif`;
+    ctx.font=`italic 300 ${clamp(W*.028,22,34)}px 'Crimson Pro',serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillStyle=rgba(P.cream,.5);
     ctx.fillText('Unit III  ·  Biology  ·  Protein Synthesis',cx,cy+52);
@@ -1112,7 +1113,7 @@ function loop(){
   if(!started)return;
   if(!paused)T++;
 
-  SCENES[si].draw();
+  try{ SCENES[si].draw(); }catch(e){ console.warn('draw error:',e); }
   updateBursts();
 
   // ── Fade-out → switch → fade-in ──
