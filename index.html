@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Protein Synthesis</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#060910;color:#e8e0d0;font-family:'DM Sans',sans-serif}
+canvas{position:fixed;inset:0;clip-path:inset(52px 0 160px 0)}
+
+/* ── Vignette overlay ── */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:5;
+  background:radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(4,6,12,.75) 100%);
+}
+
+/* ── Scanline texture ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:6;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+  animation:scan 8s linear infinite;
+}
+@keyframes scan{0%{background-position:0 0}100%{background-position:0 100px}}
+
+/* ── Splash ── */
+#splash{
+  position:fixed;inset:0;z-index:80;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 40% 38%, #0f1828 0%, #060910 65%);
+  transition:opacity 1.6s ease;
+}
+/* Animated mesh lines on splash */
+#splash::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(135deg, rgba(212,145,90,.04) 0%, transparent 50%),
+    linear-gradient(225deg, rgba(154,122,200,.04) 0%, transparent 50%);
+  animation:meshShift 6s ease-in-out infinite alternate;
+}
+@keyframes meshShift{from{opacity:.6;transform:scale(1)}to{opacity:1;transform:scale(1.04)}}
+#splash h1{
+  font-family:'Crimson Pro',serif;font-size:clamp(4rem,10vw,9rem);
+  font-weight:300;color:#f0e8d8;text-align:center;line-height:.88;
+  letter-spacing:-.02em;position:relative;
+  animation:rise 1.1s cubic-bezier(.16,1,.3,1) .3s both;
+}
+#splash h1 span{color:#d4915a;font-style:italic;display:block}
+#splash h1::after{
+  content:'';display:block;width:60px;height:1px;
+  background:linear-gradient(90deg,transparent,#d4915a,transparent);
+  margin:1.4rem auto 0;opacity:.6;
+}
+#splash p{
+  font-size:clamp(.65rem,1.2vw,.78rem);letter-spacing:.32em;
+  text-transform:uppercase;color:rgba(232,224,208,.35);
+  margin-top:1.4rem;position:relative;
+  animation:rise .9s cubic-bezier(.16,1,.3,1) .9s both;
+}
+#splash button{
+  margin-top:3rem;padding:.72rem 3rem;
+  background:transparent;
+  border:1px solid rgba(212,145,90,.4);
+  color:#d4915a;font-family:'DM Sans',sans-serif;
+  font-size:.65rem;letter-spacing:.32em;text-transform:uppercase;
+  cursor:pointer;transition:all .35s ease;position:relative;
+  animation:rise .9s cubic-bezier(.16,1,.3,1) 1.4s both;
+  overflow:hidden;
+}
+#splash button::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(212,145,90,.08),transparent);
+  opacity:0;transition:opacity .3s ease;
+}
+#splash button:hover{border-color:#d4915a;letter-spacing:.4em;color:#e8c07a}
+#splash button:hover::before{opacity:1}
+/* Floating atoms on splash */
+.atom{
+  position:absolute;width:5px;height:5px;border-radius:50%;
+  background:rgba(212,145,90,.25);pointer-events:none;
+  animation:floatAtom var(--dur,8s) ease-in-out var(--delay,0s) infinite alternate;
+}
+@keyframes floatAtom{
+  from{transform:translate(0,0) scale(1);opacity:.15}
+  to{transform:translate(var(--tx,20px),var(--ty,-30px)) scale(1.4);opacity:.4}
+}
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+/* ── Top bar ── */
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:52px;z-index:40;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2rem;
+  background:rgba(6,9,16,.88);backdrop-filter:blur(24px);
+  border-bottom:1px solid rgba(212,145,90,.12);
+}
+#scene-name{
+  font-family:'Crimson Pro',serif;font-size:1rem;font-style:italic;
+  color:rgba(212,145,90,.75);letter-spacing:.02em;
+}
+#scene-counter{
+  font-size:.6rem;letter-spacing:.2em;color:rgba(232,224,208,.28);
+  text-transform:uppercase;
+}
+
+/* ── Bottom strip ── */
+#bottombar{
+  position:fixed;bottom:0;left:0;right:0;z-index:40;
+  background:rgba(6,9,16,.97);
+  border-top:1px solid rgba(212,145,90,.18);
+  padding:1.1rem 2.4rem 1.3rem;
+  backdrop-filter:blur(28px);
+  transition:border-color .6s ease;
+}
+/* Glowing left accent bar */
+#bottombar::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(to bottom,transparent,var(--accent-col,#d4915a),transparent);
+  opacity:.7;transition:background .6s ease;
+}
+#scene-act-label{
+  font-size:.6rem;letter-spacing:.28em;text-transform:uppercase;
+  color:rgba(212,145,90,.6);margin-bottom:.38rem;
+}
+#scene-title{
+  font-family:'Crimson Pro',serif;
+  font-size:clamp(1.5rem,2.8vw,2.2rem);
+  font-weight:400;color:#f4ece0;
+  margin-bottom:.5rem;line-height:1.12;
+  transition:opacity .4s ease;
+}
+/* scene-body below */
+
+/* ── Controls ── */
+#controls{
+  position:fixed;right:2rem;bottom:1.4rem;z-index:55;
+  display:flex;gap:.55rem;align-items:center;
+}
+#scene-body{
+  font-size:clamp(1rem,1.45vw,1.12rem);
+  color:rgba(235,225,205,.82);font-weight:300;
+  line-height:1.82;max-width:860px;
+  padding-right:260px;
+  transition:opacity .4s ease;
+}
+.btn{
+  font-family:'DM Sans',sans-serif;
+  font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;
+  padding:.44rem 1rem;border-radius:3px;
+  border:1px solid rgba(212,145,90,.25);
+  background:rgba(6,9,16,.85);color:rgba(212,145,90,.65);
+  cursor:pointer;backdrop-filter:blur(16px);
+  transition:all .22s ease;pointer-events:all;
+  position:relative;overflow:hidden;
+}
+.btn::before{content:'';position:absolute;inset:0;background:rgba(212,145,90,.07);opacity:0;transition:opacity .2s}
+.btn:hover{border-color:#d4915a;color:#d4915a}
+.btn:hover::before{opacity:1}
+.btn.accent{background:rgba(212,145,90,.12);border-color:rgba(212,145,90,.55);color:#d4915a;font-weight:500}
+.btn.accent:hover{background:rgba(212,145,90,.22)}
+.btn:disabled{opacity:.22;pointer-events:none}
+
+/* ── Dot nav ── */
+#dots{
+  position:fixed;right:1.5rem;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:.5rem;z-index:50;
+}
+.dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(212,145,90,.15);border:1px solid rgba(212,145,90,.3);
+  cursor:pointer;transition:all .35s ease;pointer-events:all;
+  position:relative;
+}
+.dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:rgba(212,145,90,.08);opacity:0;transition:opacity .3s}
+.dot:hover::after{opacity:1}
+.dot.on{background:#d4915a;transform:scale(1.6);box-shadow:0 0 10px rgba(212,145,90,.7),0 0 20px rgba(212,145,90,.3)}
+
+/* ── Progress ── */
+#prog{position:fixed;top:52px;left:0;right:0;height:2px;z-index:50;background:rgba(212,145,90,.07)}
+#prog-fill{height:100%;background:linear-gradient(90deg,#c8804a,#e8b870,#c8804a);width:0%;
+  box-shadow:0 0 8px #d4915a88;transition:width .4s cubic-bezier(.16,1,.3,1);
+  background-size:200% 100%;animation:shimmer 2s linear infinite;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="atom" style="--dur:7s;--delay:0s;--tx:40px;--ty:-50px;top:30%;left:20%"></div>
+  <div class="atom" style="--dur:9s;--delay:1s;--tx:-30px;--ty:-40px;top:60%;left:75%"></div>
+  <div class="atom" style="--dur:11s;--delay:2s;--tx:20px;--ty:-60px;top:20%;left:55%"></div>
+  <div class="atom" style="--dur:8s;--delay:.5s;--tx:-50px;--ty:30px;top:70%;left:30%"></div>
+  <div class="atom" style="--dur:10s;--delay:1.5s;--tx:35px;--ty:-35px;top:45%;left:85%"></div>
+  <div class="atom" style="--dur:6s;--delay:3s;--tx:-20px;--ty:-55px;top:15%;left:40%"></div>
+  <h1>Protein<br><span>Synthesis</span></h1>
+  <p>Unit III · Biology · Group Presentation</p>
+  <button id="go">Begin Presentation</button>
+</div>
+
+<canvas id="cv"></canvas>
+
+<div id="topbar">
+  <div id="scene-name"></div>
+  <div id="scene-counter"></div>
+</div>
+<div id="prog"><div id="prog-fill"></div></div>
+
+<div id="dots"></div>
+
+<div id="bottombar">
+  <div id="scene-act-label"></div>
+  <div id="scene-title"></div>
+  <div id="scene-body"></div>
+</div>
+
+<div id="controls">
+  <button class="btn" id="btn-prev">← Back</button>
+  <button class="btn" id="btn-pause">⏸ Pause</button>
+  <button class="btn accent" id="btn-next">Next →</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H,dpr;
+function resize(){
+  dpr=devicePixelRatio||1;W=innerWidth;H=innerHeight;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.scale(dpr,dpr);
+}
+resize();addEventListener('resize',resize);
+
+const TAU=Math.PI*2;
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function eo(t){return 1-(1-clamp(t,0,1))**3}
+function lerp(a,b,t){return a+(b-a)*t}
+function sin(t,a=1,ph=0){return Math.sin(t+ph)*a}
+function cos(t,a=1,ph=0){return Math.cos(t+ph)*a}
+
+// ═══════════════════════════════════════════════
+// PALETTE
+// ═══════════════════════════════════════════════
+const P={
+  bg:     '#0b0f1a',
+  amber:  '#d4915a',
+  gold:   '#e8c07a',
+  cream:  '#e8e0d0',
+  rose:   '#c96b6b',
+  sage:   '#6aac8a',
+  sky:    '#5a9ec8',
+  violet: '#9a7ac8',
+  dark:   'rgba(11,15,26,.96)',
+};
+function rgba(hex,a){
+  const [r,g,b]=hex.replace('#','').match(/.{2}/g).map(x=>parseInt(x,16));
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ═══════════════════════════════════════════════
+// DRAW PRIMITIVES
+// ═══════════════════════════════════════════════
+function glow(x,y,r,col,a=.15){
+  if(r<=0)return;
+  const g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,rgba(col,a));g.addColorStop(1,rgba(col,0));
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();
+}
+function circle(x,y,r,fill,stroke,lw=2,blur=0){
+  if(r<=0)return;
+  ctx.save();if(blur){ctx.shadowColor=stroke||fill;ctx.shadowBlur=blur;}
+  ctx.beginPath();ctx.arc(x,y,r,0,TAU);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
+  ctx.restore();
+}
+function pill(x,y,w,h,r,fill,stroke,lw=1.5,blur=0){
+  ctx.save();if(blur){ctx.shadowColor=stroke||fill;ctx.shadowBlur=blur;}
+  ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
+  ctx.restore();
+}
+function txt(t,x,y,col,sz,align='center',w=400){
+  ctx.save();ctx.font=`${w} ${sz}px 'DM Sans',sans-serif`;
+  ctx.fillStyle=col;ctx.textAlign=align;ctx.textBaseline='middle';
+  ctx.fillText(t,x,y);ctx.restore();
+}
+function serif(t,x,y,col,sz,italic=false){
+  ctx.save();ctx.font=`${italic?'italic ':''}300 ${sz}px 'Crimson Pro',serif`;
+  ctx.fillStyle=col;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(t,x,y);ctx.restore();
+}
+
+// Floating dust particles
+const DUST=Array.from({length:70},()=>({
+  x:Math.random()*2000,y:Math.random()*1200,
+  vx:(Math.random()-.5)*.09,vy:-Math.random()*.06-.01,
+  r:Math.random()*1.4+.2,a:Math.random()*.1+.02,ph:Math.random()*TAU
+}));
+
+// Scene accent colours (used for aurora and panel tint)
+const ACCENTS=['#9a7ac8','#d4915a','#6aac8a','#5a9ec8','#c96b6b','#6aac8a','#c96b6b','#d4915a','#e8c07a'];
+
+// Burst particles for scene transitions
+let bursts=[];
+function spawnBurst(col){
+  for(let i=0;i<32;i++){
+    const ang=Math.random()*TAU,spd=Math.random()*4+1.5;
+    bursts.push({x:W*.5,y:H*.5,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,
+      r:Math.random()*3+1,life:1,col,decay:Math.random()*.018+.012});
+  }
+}
+function updateBursts(){
+  bursts=bursts.filter(b=>b.life>0.01);
+  bursts.forEach(b=>{
+    b.x+=b.vx;b.y+=b.vy;b.vy+=.04;b.life-=b.decay;b.vx*=.97;
+    const r=Math.max(b.r*b.life,0.1); // clamp — never negative
+    ctx.save();ctx.globalAlpha=Math.min(b.life*.7,1);ctx.shadowColor=b.col;ctx.shadowBlur=6;
+    ctx.beginPath();ctx.arc(b.x,b.y,r,0,TAU);
+    ctx.fillStyle=b.col;ctx.fill();ctx.restore();
+  });
+}
+
+function drawBG(){
+  // Deep background
+  const g=ctx.createRadialGradient(W*.42,H*.35,0,W*.5,H*.5,Math.max(W,H)*.85);
+  g.addColorStop(0,'#0f1826');g.addColorStop(.55,'#09101c');g.addColorStop(1,'#050810');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // Aurora mesh — slow shifting colour clouds per scene
+  const acol=ACCENTS[si]||'#d4915a';
+  const [ar,ag,ab]=acol.replace('#','').match(/.{2}/g).map(x=>parseInt(x,16));
+  const aph=T*.006;
+  [[W*.2,H*.3,.12],[W*.8,H*.5,.09],[W*.5,H*.7,.07]].forEach(([ax,ay,aa],i)=>{
+    const r=W*.35+sin(aph+i*1.8)*W*.06;
+    const gr=ctx.createRadialGradient(ax+sin(aph+i)*30,ay+cos(aph+i)*20,0,ax,ay,r);
+    gr.addColorStop(0,`rgba(${ar},${ag},${ab},${aa})`);
+    gr.addColorStop(1,`rgba(${ar},${ag},${ab},0)`);
+    ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+  });
+
+  // Dust — tinted per scene
+  DUST.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.ph+=.005;p.x+=sin(p.ph)*.05;
+    if(p.y<-4)p.y=H+4;if(p.x<0)p.x=W;if(p.x>W)p.x=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.max(p.r,.1),0,TAU);
+    ctx.fillStyle=`rgba(${ar},${ag},${ab},${p.a*.8})`;ctx.fill();
+  });
+}
+
+// ═══════════════════════════════════════════════
+// REUSABLE ANIMATED COMPONENTS
+// (all use global T — never reset, always smooth)
+// ═══════════════════════════════════════════════
+
+// Breathing DNA helix — always animated by T
+function dnaHelix(cx,cy,len,speed=1){
+  const ph=T*speed*.013;
+  const steps=Math.floor(len/6.5);
+  // Strand A
+  ctx.save();ctx.strokeStyle=P.amber;ctx.lineWidth=2.2;ctx.shadowColor=P.amber;ctx.shadowBlur=9;
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const x=cx-len/2+i*(len/steps),y=cy+sin(i*.28+ph)*22;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }ctx.stroke();
+  // Strand B
+  ctx.strokeStyle=P.violet;ctx.shadowColor=P.violet;
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const x=cx-len/2+i*(len/steps),y=cy+sin(i*.28+ph+Math.PI)*22;
+    i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+  }ctx.stroke();
+  ctx.shadowBlur=0;
+  // Rungs
+  for(let i=1;i<steps;i+=3){
+    const x=cx-len/2+i*(len/steps);
+    const y1=cy+sin(i*.28+ph)*22,y2=cy+sin(i*.28+ph+Math.PI)*22;
+    ctx.strokeStyle='rgba(180,140,90,.18)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,y1);ctx.lineTo(x,y2);ctx.stroke();
+    circle(x,y1,2.4,P.amber,'',0);circle(x,y2,2.4,P.violet,'',0);
+  }ctx.restore();
+}
+
+// Pulsing tRNA clover — animated by T
+function tRNA(cx,cy,col,scale=1){
+  const pulse=1+sin(T*.04)*0.04;
+  const loopR=Math.max(8*scale,1);
+  const armDist=Math.max(14*scale*pulse,2);
+  const stemLen=Math.max(17*scale*pulse,2);
+  ctx.save();ctx.translate(cx,cy);
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowColor=col;ctx.shadowBlur=13;
+  for(let a=0;a<3;a++){
+    ctx.save();ctx.rotate(a*TAU/3-Math.PI/2);
+    ctx.beginPath();ctx.arc(0,-armDist,loopR,0,TAU);ctx.stroke();ctx.restore();
+  }
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,stemLen);ctx.stroke();
+  ctx.restore();
+}
+
+// Amino acid bead — glowing, breathing
+function aaBead(x,y,r,name,col,alpha=1){
+  const pulse=1+sin(T*.038+x*.01)*0.03;
+  const safeR=Math.max(r*pulse, 1); // never negative
+  ctx.save();ctx.globalAlpha=alpha;
+  ctx.shadowColor=col;ctx.shadowBlur=16;
+  ctx.beginPath();ctx.arc(x,y,safeR,0,TAU);
+  ctx.fillStyle=P.dark;ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+  ctx.restore();
+  ctx.save();ctx.globalAlpha=alpha;
+  txt(name,x,y,col,r*.7,'center',600);ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+// SCENES — all use T (global, never resets)
+// Each scene is a pure continuous idle animation
+// ═══════════════════════════════════════════════
+const SCENES=[
+{
+  name:'Prologue',
+  title:'Inside a Living Cell',
+  body:'Every protein your body makes starts here — with DNA in the nucleus. Protein synthesis has two phases: Transcription (DNA → mRNA) and Translation (mRNA → Protein).',
+  draw(){
+    const cx=W*.5,cy=H*.43;
+    // Nucleus — breathing ellipse
+    const nb=1+sin(T*.015)*.022;
+    glow(cx,cy,H*.5,P.violet,.09+sin(T*.02)*.02);
+    ctx.save();ctx.strokeStyle=rgba(P.violet,.2);ctx.lineWidth=1.5;ctx.setLineDash([5,9]);
+    ctx.beginPath();ctx.ellipse(cx,cy,W*.32*nb,H*.38*nb,0,0,TAU);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    txt('NUCLEUS',cx,cy-H*.38*nb-14,rgba(P.violet,.4),10,'center',300);
+
+    // DNA helix centre
+    glow(cx,cy,100,P.amber,.12);
+    dnaHelix(cx,cy,240);
+
+    // 4 orbiting labels
+    const orbs=[
+      {l:'mRNA',c:P.amber,r:W*.26,sp:.007,ph:0},
+      {l:'tRNA', c:P.sage, r:W*.24,sp:.009,ph:2.1},
+      {l:'rRNA', c:P.sky,  r:W*.28,sp:.006,ph:4.2},
+      {l:'Protein',c:P.rose,r:W*.25,sp:.008,ph:1.05},
+    ];
+    orbs.forEach(o=>{
+      const ang=T*o.sp+o.ph;
+      const ox=cx+cos(ang)*o.r*(W>1200?.7:.6),oy=cy+sin(ang)*o.r*.42;
+      glow(ox,oy,54,o.c,.22);
+      circle(ox,oy,25,P.dark,o.c,1.6,16);
+      txt(o.l,ox,oy,o.c,10,'center',500);
+    });
+
+    // Phase arrows always visible at bottom
+    const ay=H*.82;
+    [
+      {label:'Transcription',x:cx-170,c:P.amber},
+      {label:'Translation',  x:cx+170,c:P.rose},
+    ].forEach(a=>{
+      pill(a.x-60,ay-14,120,28,5,rgba(a.c,.1),a.c,1.2,8);
+      txt(a.label,a.x,ay,a.c,10,'center',500);
+    });
+    // arrow between them
+    const arw=10+sin(T*.05)*3;
+    ctx.save();ctx.strokeStyle=rgba(P.amber,.35);ctx.lineWidth=1.5;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(cx-108,ay);ctx.lineTo(cx-arw,ay);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=rgba(P.amber,.35);
+    ctx.beginPath();ctx.moveTo(cx-arw-4,ay-4);ctx.lineTo(cx-arw+2,ay);ctx.lineTo(cx-arw-4,ay+4);ctx.fill();
+    ctx.restore();
+    serif('DNA — the master blueprint of life',cx,H*.91,rgba(P.cream,.35),14,true);
+  }
+},
+{
+  name:'Act I · Transcription',
+  title:'RNA Polymerase Reads the DNA',
+  body:'RNA Polymerase binds at the TATA box, unwinds the double helix, and builds a complementary pre-mRNA strand — nucleotide by nucleotide in the nucleus.',
+  draw(){
+    const cx=W*.5,cy=H*.35;
+    glow(cx,cy+60,H*.44,P.gold,.08);
+
+    // Nucleus boundary
+    ctx.save();ctx.strokeStyle=rgba(P.violet,.14);ctx.lineWidth=1;ctx.setLineDash([4,8]);
+    ctx.beginPath();ctx.ellipse(cx,cy+40,W*.46,H*.42,0,0,TAU);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    txt('NUCLEUS',cx-W*.38,cy-H*.1,rgba(P.violet,.32),9,'left',300);
+
+    const dnaLen=W*.7,dnaY=cy;
+    dnaHelix(cx,dnaY,dnaLen,.9);
+
+    // TATA box
+    const tataX=cx-dnaLen/2+36;
+    glow(tataX,dnaY-50,34,P.amber,.2);
+    pill(tataX-26,dnaY-62,52,22,5,rgba(P.amber,.12),P.amber,1.2,10);
+    txt('TATA box',tataX,dnaY-51,P.amber,9,'center',500);
+
+    // RNA Polymerase — moves continuously left→right, loops seamlessly (no restart jank)
+    const polProg=(T*.004)%1; // 0→1 forever, smooth modulo loop
+    const polX=cx-dnaLen*.44+polProg*dnaLen*.92;
+    glow(polX,dnaY-48,68,P.gold,.28);
+    ctx.save();ctx.shadowColor=P.gold;ctx.shadowBlur=26;
+    pill(polX-30,dnaY-70,60,44,10,P.dark,P.gold,2.5,0);ctx.restore();
+    txt('RNA',polX,dnaY-56,P.gold,10,'center',700);
+    txt('POL',polX,dnaY-41,P.gold,10,'center',700);
+    ctx.save();ctx.strokeStyle=rgba(P.gold,.3);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(polX,dnaY-26);ctx.lineTo(polX,dnaY-21);ctx.stroke();ctx.restore();
+
+    // mRNA strand — always full length (pol has already been here), codons always visible
+    const mY=dnaY+82,mX0=cx-dnaLen*.44;
+    ctx.save();ctx.strokeStyle=P.amber;ctx.lineWidth=2.8;ctx.shadowColor=P.amber;ctx.shadowBlur=10;
+    ctx.beginPath();
+    for(let i=0;i<=50;i++){
+      const x=mX0+i*(dnaLen*.92/50),y=mY+sin(i*.35+T*.04)*8;
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }ctx.stroke();ctx.restore();
+
+    // Codon pills — always shown
+    ['AUG','GGC','UCC','AUC','GCU','UAG','UGA'].forEach((c,i)=>{
+      const px=mX0+32+i*(dnaLen*.88/7.4);
+      if(px>W-20)return;
+      pill(px-13,mY-26,26,15,4,rgba(P.amber,.09),rgba(P.amber,.7),1,4);
+      txt(c,px,mY-18,rgba(P.amber,.9),8,'center',400);
+    });
+    txt('pre-mRNA',mX0+dnaLen*.44,mY+26,rgba(P.amber,.55),9,'center',300);
+
+    // Intron/Exon labels — always visible, gentle bob
+    const seg=[{l:'EXON',c:P.sage,rx:-.35},{l:'INTRON',c:P.rose,rx:-.14},
+               {l:'EXON',c:P.sage,rx:.07},{l:'INTRON',c:P.rose,rx:.26},{l:'EXON',c:P.sage,rx:.43}];
+    seg.forEach((s,si)=>{
+      const lx=cx+s.rx*dnaLen*.9;if(lx<30||lx>W-30)return;
+      const bob=sin(T*.022+si*.8)*4;
+      pill(lx-23,mY+10+bob,46,17,3,rgba(s.c,.1),rgba(s.c,.8),1,4);
+      txt(s.l,lx,mY+18+bob,s.c,9,'center',400);
+    });
+  }
+},
+{
+  name:'Act II · RNA Processing',
+  title:'Splicing — Introns Out, Exons Joined',
+  body:'The splicesome enzyme cuts out non-coding introns and ligates the exons. The result: a mature mRNA with only the coding sequence, ready to exit the nucleus.',
+  draw(){
+    const cx=W*.5,sY=H*.37;
+    glow(cx,sY,H*.38,P.sage,.08);
+
+    // Strand
+    const sw=W*.76,sX=cx-sw/2;
+    ctx.save();ctx.strokeStyle=rgba(P.amber,.7);ctx.lineWidth=3;ctx.shadowColor=P.amber;ctx.shadowBlur=8;
+    ctx.beginPath();ctx.moveTo(sX,sY);ctx.lineTo(sX+sw,sY);ctx.stroke();ctx.restore();
+    txt("pre-mRNA  5'→",sX+4,sY-20,rgba(P.amber,.55),10,'left',300);
+
+    // Build segments
+    const defs=[{l:'EXON 1',e:true,r:.17},{l:'INTRON 1',e:false,r:.20},
+                {l:'EXON 2',e:true,r:.15},{l:'INTRON 2',e:false,r:.18},{l:'EXON 3',e:true,r:.16}];
+    const gap=5,av=sw-gap*4,tot=defs.reduce((s,x)=>s+x.r,0);
+    let rx=sX;
+    const segs=defs.map(d=>{const w=av*(d.r/tot),x=rx;rx+=w+gap;return{...d,w,x};});
+
+    // Splicesome — orbits slowly above
+    const splCX=cx,splCY=sY-120+sin(T*.02)*8;
+    glow(splCX,splCY,80,P.gold,.24);
+    circle(splCX,splCY,42,P.dark,P.gold,2,24);
+    circle(splCX,splCY,26,rgba(P.gold,.12),'',0);
+    txt('SPLICE',splCX,splCY-7,P.gold,10,'center',700);
+    txt('SOME',  splCX,splCY+8, P.gold,10,'center',700);
+
+    segs.forEach((seg,si)=>{
+      const col=seg.e?P.sage:P.rose;
+      // introns: breathe up-down continuously
+      const lift=seg.e?0:sin(T*.025+si)*.5*32+sin(T*.04+si*1.3)*12;
+      pill(seg.x,sY-13-lift,seg.w,26,6,rgba(col,.12),col,1.5,10);
+      txt(seg.l,seg.x+seg.w/2,sY-lift,col,10,'center',400);
+      // splicesome arms to introns
+      if(!seg.e){
+        const ix=seg.x+seg.w/2;
+        ctx.save();ctx.strokeStyle=rgba(P.gold,.28);ctx.lineWidth=1.5;ctx.setLineDash([3,5]);
+        ctx.beginPath();ctx.moveTo(splCX,splCY+42);
+        ctx.quadraticCurveTo((splCX+ix)/2,sY-50,ix,sY-13-lift);ctx.stroke();
+        ctx.setLineDash([]);ctx.restore();
+      }
+    });
+
+    // Mature mRNA — always shown below
+    const mY=sY+108;
+    ctx.save();ctx.strokeStyle=P.sage;ctx.lineWidth=3;ctx.shadowColor=P.sage;ctx.shadowBlur=12;
+    ctx.beginPath();ctx.moveTo(cx-sw*.36,mY);ctx.lineTo(cx+sw*.36,mY);ctx.stroke();ctx.restore();
+    const eW=(sw*.72-20)/3;
+    ['EXON 1','EXON 2','EXON 3'].forEach((l,i)=>{
+      const ex=cx-sw*.36+i*(eW+10);
+      pill(ex,mY-14,eW,28,6,rgba(P.sage,.1),P.sage,1.5,12);
+      txt(l,ex+eW/2,mY,P.sage,10,'center',400);
+    });
+    serif('Mature mRNA — introns removed, exons ligated',cx,mY+38,rgba(P.cream,.45),14,true);
+
+    // Arrow pre→mature (breathing)
+    const arLen=28+sin(T*.04)*4;
+    ctx.save();ctx.strokeStyle=rgba(P.sage,.4);ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(cx,sY+16);ctx.lineTo(cx,mY-16);ctx.stroke();
+    ctx.fillStyle=rgba(P.sage,.4);
+    ctx.beginPath();ctx.moveTo(cx-5,mY-16);ctx.lineTo(cx,mY-10);ctx.lineTo(cx+5,mY-16);ctx.fill();
+    ctx.restore();
+  }
+},
+{
+  name:'Act III · Three RNA Molecules',
+  title:'mRNA, tRNA and rRNA',
+  body:'mRNA (500–1000 nt) is the blueprint with codons. tRNA (75–80 nt) delivers amino acids via its anticodon. rRNA forms the ribosome with P site and A site.',
+  draw(){
+    const cy=H*.42;
+    const items=[
+      {x:W*.2, c:P.amber, l:'mRNA', s1:'Blueprint',  s2:'500–1000 nt'},
+      {x:W*.5, c:P.sky,   l:'rRNA', s1:'Ribosome',   s2:'100–3000 nt'},
+      {x:W*.8, c:P.sage,  l:'tRNA', s1:'Delivery',   s2:'75–80 nt'},
+    ];
+
+    // Connecting dashed lines
+    ctx.save();ctx.strokeStyle=rgba(P.cream,.1);ctx.lineWidth=1.5;ctx.setLineDash([4,7]);
+    ctx.beginPath();ctx.moveTo(W*.2+90,cy);ctx.lineTo(W*.5-90,cy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W*.5+90,cy);ctx.lineTo(W*.8-90,cy);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+
+    items.forEach((it,i)=>{
+      glow(it.x,cy,200,it.c,.16);
+
+      if(i===0){
+        // mRNA — bigger wave, wider span
+        ctx.save();ctx.strokeStyle=it.c;ctx.lineWidth=4;ctx.shadowColor=it.c;ctx.shadowBlur=18;
+        ctx.beginPath();
+        for(let k=-9;k<=9;k++){
+          const bx=it.x+k*11,by=cy+sin(k*.72+T*.06)*28;
+          k===-9?ctx.moveTo(bx,by):ctx.lineTo(bx,by);
+        }ctx.stroke();ctx.restore();
+        // codon pills bigger
+        ['AUG','GGC','UAA'].forEach((c,ci)=>{
+          const cpx=it.x-30+ci*30,cpy=cy-72+sin(T*.04+ci)*5;
+          pill(cpx-20,cpy-11,40,22,5,rgba(it.c,.12),rgba(it.c,.9),1.5,10);
+          txt(c,cpx,cpy,it.c,11,'center',500);
+        });
+        txt("5'→ codons →3'",it.x,cy+52,rgba(it.c,.6),11,'center',300);
+
+      } else if(i===1){
+        // rRNA ribosome — bigger rings
+        const rp=1+sin(T*.03)*.04;
+        [72,52,32].forEach((r,ri)=>{
+          circle(it.x,cy,r*rp,rgba(it.c,.07),it.c+(ri===0?'cc':ri===1?'88':'44'),ri===0?2.5:1.5,ri===0?22:8);
+        });
+        txt('P',it.x-22,cy,it.c,18,'center',700);
+        txt('A',it.x+22,cy,rgba(it.c,.75),18,'center',700);
+        ctx.save();ctx.strokeStyle=rgba(it.c,.3);ctx.lineWidth=1.5;ctx.setLineDash([3,4]);
+        ctx.beginPath();ctx.moveTo(it.x,cy-30);ctx.lineTo(it.x,cy+30);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+        txt('P site · A site',it.x,cy+82,rgba(it.c,.6),11,'center',300);
+
+      } else {
+        // tRNA clover — bigger scale
+        tRNA(it.x,cy,it.c,1.7);
+        const acY=cy+56+sin(T*.04)*4;
+        pill(it.x-26,acY-12,52,24,6,rgba(it.c,.12),rgba(it.c,.9),1.5,10);
+        txt('UAC',it.x,acY,it.c,13,'center',600);
+        txt('anticodon',it.x,acY+26,rgba(it.c,.55),10,'center',300);
+      }
+
+      // Label names bigger
+      ctx.save();
+      ctx.font=`300 ${clamp(W*.028,26,38)}px 'Crimson Pro',serif`;
+      ctx.fillStyle=it.c;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(it.l,it.x,cy+108);ctx.restore();
+      txt(it.s1,it.x,cy+132,rgba(it.c,.85),12,'center',400);
+      txt(it.s2,it.x,cy+150,rgba(it.c,.5),10,'center',300);
+    });
+  }
+},
+{
+  name:'Act IV · Initiation',
+  title:'Ribosome Assembles at AUG',
+  body:'The small subunit scans the mRNA for AUG. Initiator tRNA (Met, anticodon UAC) docks at P site. Large subunit locks in. Translation is ready to begin.',
+  draw(){
+    const cx=W*.5, mY=H*.52;
+    glow(cx,mY-30,H*.42,P.rose,.08);
+
+    const cW=W*.13; // codon width
+    const augX=cx;  // AUG always dead centre
+    const mStart=augX-cW*.5; // mRNA starts so AUG is centred
+
+    // mRNA strand
+    ctx.save();ctx.strokeStyle=rgba(P.amber,.55);ctx.lineWidth=3;ctx.shadowColor=P.amber;ctx.shadowBlur=8;
+    ctx.beginPath();ctx.moveTo(mStart-cW,mY);ctx.lineTo(mStart+cW*7,mY);ctx.stroke();ctx.restore();
+    txt("mRNA  5'→",mStart-cW-10,mY-18,rgba(P.amber,.55),11,'right',300);
+
+    ['AUG','CUA','CUU','CGA','UCC','UGA'].forEach((c,i)=>{
+      const bx=mStart+cW*i+cW*.5;
+      const isS=i===0,isSt=i===5;
+      pill(bx-22,mY-13,44,26,6,(isS||isSt)?rgba(P.rose,.18):rgba(P.amber,.08),
+           (isS||isSt)?P.rose:rgba(P.amber,.5),1.8,(isS||isSt)?16:3);
+      txt(c,bx,mY,(isS||isSt)?P.rose:rgba(P.amber,.85),12,'center',500);
+      if(isS) txt('▲ START',bx,mY+22,rgba(P.rose,.8),10,'center',600);
+    });
+
+    // Large subunit — big, centred on augX
+    const lBob=sin(T*.022)*6;
+    glow(augX,mY-120+lBob,130,P.rose,.18);
+    ctx.save();ctx.shadowColor=P.rose;ctx.shadowBlur=32;
+    pill(augX-110,mY-172+lBob,220,84,20,P.dark,P.rose,3,0);ctx.restore();
+    ctx.save();ctx.font=`300 22px 'Crimson Pro',serif`;ctx.fillStyle=P.rose;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Large Subunit',augX,mY-130+lBob);ctx.restore();
+
+    // Small subunit — big, centred on augX
+    const sBob=sin(T*.022+1.6)*6;
+    ctx.save();ctx.shadowColor=P.gold;ctx.shadowBlur=26;
+    pill(augX-96,mY+28+sBob,192,58,16,P.dark,P.gold,2.5,0);ctx.restore();
+    txt('Small Subunit',augX,mY+57+sBob,P.gold,15,'center',400);
+
+    // P / A site markers
+    [[augX-30,'P',P.sage],[augX+30,'A',P.sky]].forEach(([sx,sl,sc])=>{
+      ctx.save();ctx.strokeStyle=rgba(sc,.45);ctx.lineWidth=2;ctx.setLineDash([4,4]);
+      ctx.beginPath();ctx.moveTo(sx,mY-62);ctx.lineTo(sx,mY-15);ctx.stroke();ctx.setLineDash([]);
+      txt(sl+' site',sx,mY-78,rgba(sc,.95),13,'center',600);ctx.restore();
+    });
+
+    // AUG pulse glow
+    glow(augX,mY,60,P.rose,.2+sin(T*.06)*.08);
+
+    // tRNA — big, floating above P site
+    const tBob=sin(T*.028)*10;
+    const tx=augX-30, ty=mY-230+tBob;
+    glow(tx,ty,80,P.sage,.26);
+    tRNA(tx,ty,P.sage,1.9);
+    txt('Met',tx,ty-72,P.rose,17,'center',700);
+    pill(tx-30,ty+32,60,28,7,rgba(P.sage,.16),P.sage,1.8,14);
+    txt('UAC',tx,ty+46,P.sage,14,'center',500);
+  }
+},
+{
+  name:'Act V · Elongation',
+  title:'The Chain Grows — One Bond at a Time',
+  body:'Charged tRNA enters A site. Peptide bond forms. Ribosome shifts 3 nucleotides. Empty tRNA leaves. The polypeptide grows. Each cycle costs 4 ATP.',
+  draw(){
+    const cx=W*.5,cy=H*.54; // mRNA at 54% — chain at cy-105 = ~H*.43, safe
+    glow(cx,cy-30,H*.35,P.sage,.07);
+
+    const mW=W*.82,mX=cx-mW/2,cW=mW/6;
+    const aaNames=['Met','Gly','Ser','Ile','Ala'];
+    const aaCols=[P.rose,P.amber,P.gold,P.violet,P.sky];
+
+    // Animate ribosome stepping — 5 cycles over period ~600 frames, smooth
+    const period=600;
+    const tMod=T%period;
+    const cycleF=tMod/period*5;  // 0→5 continuously
+    const cycleI=Math.floor(cycleF)%5;
+    const cycleP=cycleF-Math.floor(cycleF);
+    // ribosome X smoothly moves
+    const ribCycle=Math.floor(cycleF)%5;
+    const ribNext=(ribCycle+1)%5;
+    const ribX=lerp(mX+cW*ribCycle, mX+cW*ribNext, eo(cycleP));
+
+    // mRNA
+    ctx.save();ctx.strokeStyle=rgba(P.amber,.4);ctx.lineWidth=3;ctx.shadowColor=P.amber;ctx.shadowBlur=6;
+    ctx.beginPath();ctx.moveTo(mX,cy);ctx.lineTo(mX+mW,cy);ctx.stroke();ctx.restore();
+    txt("5'",mX-16,cy,rgba(P.amber,.4),10,'center',300);
+    txt("3'",mX+mW+16,cy,rgba(P.amber,.4),10,'center',300);
+
+    // Codons
+    ['AUG','GGC','UCC','AUC','GCU','UAA'].forEach((c,i)=>{
+      const bx=mX+cW*i+cW*.5,isStop=i===5;
+      pill(bx-17,cy-11,34,22,5,isStop?rgba(P.rose,.14):rgba(P.amber,.07),
+           isStop?P.rose:rgba(P.amber,.45),1.5,isStop?12:3);
+      txt(c,bx,cy,isStop?P.rose:rgba(P.amber,.8),10,'center',400);
+    });
+
+    // Ribosome window — glides smoothly
+    ctx.save();ctx.shadowColor=rgba(P.sage,.6);ctx.shadowBlur=36;
+    ctx.strokeStyle=rgba(P.sage,.25);ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(ribX,cy-62,cW*2,148,18);ctx.stroke();
+    ctx.fillStyle=rgba(P.sage,.04);ctx.fill();ctx.restore();
+    txt('RIBOSOME',ribX+cW,cy-50,rgba(P.sage,.5),10,'center',400);
+    txt('P',ribX+cW*.5,cy-34,rgba(P.sage,.6),9,'center',700);
+    txt('A',ribX+cW*1.5,cy-34,rgba(P.sky,.6),9,'center',700);
+
+    // Polypeptide chain — grows then resets smoothly
+    const shownF=cycleF;
+    const shown=Math.min(Math.floor(shownF)+1,5);
+    for(let i=0;i<shown;i++){
+      const ax=mX+cW*i+cW*.5;
+      const ay=cy-105-sin(i*.55)*9;
+      const alpha=i===shown-1?eo(clamp(cycleP*3,0,1)):1;
+      aaBead(ax,ay,19,aaNames[i%5],aaCols[i%5],alpha);
+      if(i>0){
+        const px=mX+cW*(i-1)+cW*.5,py=cy-105-sin((i-1)*.55)*9;
+        ctx.save();ctx.globalAlpha=alpha*.7;
+        ctx.strokeStyle=rgba(P.cream,.16);ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(px+19,py);ctx.lineTo(ax-19,ay);ctx.stroke();
+        ctx.save();ctx.shadowColor=aaCols[i%5];ctx.shadowBlur=8;
+        circle((px+ax)/2,(py+ay)/2,3.5,rgba(aaCols[i%5],.8),'',0);ctx.restore();
+        ctx.restore();
+      }
+    }
+    if(shown>1)txt('polypeptide chain',mX+cW*(shown-1)*.5+cW*.5,cy-135,rgba(P.cream,.4),9,'center',300);
+
+    // tRNA in A site — bobs in from below
+    const atx=ribX+cW*1.5;
+    const aty=cy+70+sin(T*.035)*6;
+    glow(atx,aty,44,aaCols[cycleI],.2);
+    tRNA(atx,aty,aaCols[cycleI],1.05);
+    txt(aaNames[cycleI],atx,aty-40,aaCols[cycleI],11,'center',600);
+
+    // Cycle counter
+    const cyN=Math.floor(cycleF)%5+1;
+    pill(W-110,44,90,26,5,rgba(P.sage,.1),rgba(P.sage,.4),1,0);
+    txt(`Cycle ${cyN}/5`,W-65,57,rgba(P.sage,.8),9,'center',400);
+  }
+},
+{
+  name:'Act VI · Termination',
+  title:'Stop Codon — Chain Released',
+  body:'UAA, UAG or UGA enters the A site. No tRNA binds. Release factors trigger ribosome disassembly. The polypeptide chain floats free — primary structure complete.',
+  draw(){
+    const cx=W*.5,cy=H*.52;
+    glow(cx,cy-30,H*.42,P.rose,.09);
+
+    const mW=W*.7,mX=cx-mW/2,cW=mW/5,stopX=mX+cW*4;
+
+    // mRNA
+    ctx.save();ctx.strokeStyle=rgba(P.amber,.45);ctx.lineWidth=3;ctx.shadowColor=P.amber;ctx.shadowBlur=6;
+    ctx.beginPath();ctx.moveTo(mX,cy);ctx.lineTo(mX+mW,cy);ctx.stroke();ctx.restore();
+
+    // Codons
+    ['AUG','GGC','UCC','AUC','UAA'].forEach((c,i)=>{
+      const bx=mX+cW*i+cW*.5,isSt=i===4;
+      pill(bx-19,cy-11,38,22,5,isSt?rgba(P.rose,.16):rgba(P.amber,.07),
+           isSt?P.rose:rgba(P.amber,.5),1.5,isSt?14:3);
+      txt(c,bx,cy,isSt?P.rose:rgba(P.amber,.85),10,'center',400);
+      if(isSt)txt('STOP',bx,cy+19,rgba(P.rose,.8),9,'center',700);
+    });
+
+    // Ribosome — fades out and in slowly (breathing)
+    const ribA=.5+sin(T*.018)*.35; // 0.15 → 0.85
+    ctx.save();ctx.globalAlpha=ribA;
+    glow(stopX,cy-28,88,P.rose,.14);ctx.shadowColor=P.rose;ctx.shadowBlur=26;
+    pill(stopX-70,cy-70,140,52,14,P.dark,rgba(P.rose,.7),2.5,0);
+    serif('Ribosome',stopX,cy-44,P.rose,14);ctx.restore();
+
+    // Polypeptide chain — floats up in safe zone (topbar=52px, panel~160px)
+    // Safe zone: 70px to H-170px. Chain starts at mY-88, rises max to 80px from top
+    const floatPeriod=400;
+    const floatP=(T%floatPeriod)/floatPeriod;
+    // Chain starts at chainY0, rises to minY. Label needs 100px above beads.
+    const chainY0=cy-88;
+    const minY=130; // top of bead row — 130px from top keeps label above topbar
+    const maxRise=Math.max(chainY0-minY,0);
+    const rise=eo(floatP)*maxRise;
+    const chainY=chainY0-rise;
+    const chainAlpha=floatP<.82?1:1-(floatP-.82)/.18; // fade near top before reset
+    const chain=['Met','Gly','Ser','Ile'];
+    const aCols=[P.rose,P.amber,P.gold,P.violet];
+    chain.forEach((aa,i)=>{
+      const bx=mX+cW*i+cW*.5;
+      aaBead(bx,chainY,20,aa,aCols[i],chainAlpha);
+      if(i>0){
+        ctx.save();ctx.globalAlpha=chainAlpha*.7;
+        ctx.strokeStyle=rgba(P.cream,.16);ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(mX+cW*(i-1)+cW*.5+20,chainY);ctx.lineTo(bx-20,chainY);ctx.stroke();
+        ctx.restore();
+      }
+    });
+    // Released label — always sits 60px above the chain row, never overlaps beads
+    const la=clamp((floatP-.18)/.22,0,1)*chainAlpha;
+    ctx.save();ctx.globalAlpha=la;
+    const labelY=Math.max(chainY-68, 62); // 68px above bead centres, min 62px from top
+    serif('✦  Polypeptide Released!  ✦',cx,labelY,P.gold,20,true);
+    txt('Primary structure complete — amino acid chain is free',cx,labelY+26,rgba(P.cream,.55),11,'center',300);
+    ctx.restore();
+
+    // Subunits drift apart
+    const drift=.5+sin(T*.016)*.4;
+    const sl=rgba(P.rose,.35+drift*.3),sg=rgba(P.gold,.35+drift*.3);
+    pill(stopX-80-drift*70,cy+28+drift*14,96,40,10,rgba(P.dark,.9),sl,1.5,10);
+    txt('Large',stopX-32-drift*70,cy+48+drift*14,rgba(P.rose,.65),9,'center',400);
+    pill(stopX+8+drift*65,cy+28+drift*14,96,40,10,rgba(P.dark,.9),sg,1.5,10);
+    txt('Small',stopX+56+drift*65,cy+48+drift*14,rgba(P.gold,.65),9,'center',400);
+  }
+},
+{
+  name:'Epilogue · Protein Structure',
+  title:'Four Levels of Folding',
+  body:'Primary: amino acid sequence. Secondary: α-helix & β-sheet (H-bonds). Tertiary: 3D fold. Quaternary: multi-subunit assembly. Globular vs Fibrous proteins.',
+  draw(){
+    const cx=W*.5,cy=H*.42;
+    const structs=[
+      {x:W*.13,l:'Primary',   s:'aa sequence',   c:P.amber},
+      {x:W*.38,l:'Secondary', s:'α-helix · β-sheet',c:P.sage},
+      {x:W*.63,l:'Tertiary',  s:'3D fold',        c:P.sky},
+      {x:W*.88,l:'Quaternary',s:'multi-subunit',  c:P.violet},
+    ];
+
+    structs.forEach((st,i)=>{
+      glow(st.x,cy,125,st.c,.14);
+      if(i===0){
+        // beads — wave gently
+        const aas=['M','G','S','I','A','L'],sx0=st.x-50;
+        aas.forEach((a,ai)=>{
+          const ax=sx0+ai*20,ay=cy+sin(ai*.9+T*.038)*8;
+          circle(ax,ay,9,P.dark,st.c,2,10);
+          txt(a,ax,ay,st.c,8,'center',600);
+          if(ai>0){ctx.strokeStyle=rgba(st.c,.45);ctx.lineWidth=1.2;
+            ctx.beginPath();ctx.moveTo(ax-20+9,ay);ctx.lineTo(ax-9,ay);ctx.stroke();}
+        });
+      }
+      else if(i===1){
+        // helix + sheet — always animating
+        ctx.save();ctx.translate(st.x,cy-14);
+        ctx.strokeStyle=st.c;ctx.lineWidth=3;ctx.shadowColor=st.c;ctx.shadowBlur=16;
+        ctx.beginPath();
+        for(let k=0;k<20;k++){
+          const hx=k*3.4-34,hy=sin(k*.9+T*.055)*19;
+          k?ctx.lineTo(hx,hy):ctx.moveTo(hx,hy);
+        }ctx.stroke();ctx.restore();
+        ctx.save();ctx.translate(st.x,cy+18);
+        for(let k=0;k<3;k++){
+          const bx=-22+k*22;
+          pill(bx,-12,14,30,2,rgba(st.c,.12),rgba(st.c,.8),1.5,0);
+          ctx.fillStyle=rgba(st.c,.7);
+          ctx.beginPath();ctx.moveTo(bx+7,18);ctx.lineTo(bx+1,24);ctx.lineTo(bx+13,24);ctx.closePath();ctx.fill();
+        }ctx.restore();
+      }
+      else if(i===2){
+        // organic blob — morphs continuously
+        ctx.save();ctx.translate(st.x,cy);
+        ctx.strokeStyle=st.c;ctx.lineWidth=2.5;ctx.shadowColor=st.c;ctx.shadowBlur=20;
+        ctx.beginPath();
+        for(let a=0;a<=TAU+.1;a+=.1){
+          const r=30+sin(a*3.2+T*.055)*8;
+          a<.05?ctx.moveTo(cos(a)*r,sin(a)*r):ctx.lineTo(cos(a)*r,sin(a)*r);
+        }ctx.closePath();ctx.fillStyle=rgba(st.c,.1);ctx.fill();ctx.stroke();
+        ctx.restore();
+      }
+      else{
+        // two sub-blobs orbiting each other slowly
+        const angle=T*.025;
+        [0,Math.PI].forEach((ph,oi)=>{
+          const ox=cos(angle+ph)*16,oy=sin(angle+ph)*8;
+          ctx.save();ctx.translate(st.x+ox,cy+oy);
+          ctx.strokeStyle=st.c;ctx.lineWidth=2;ctx.shadowColor=st.c;ctx.shadowBlur=16;
+          ctx.beginPath();
+          for(let a=0;a<=TAU+.1;a+=.15){
+            const r=15+sin(a*3+T*.04)*4;
+            a<.05?ctx.moveTo(cos(a)*r,sin(a)*r):ctx.lineTo(cos(a)*r,sin(a)*r);
+          }ctx.closePath();ctx.fillStyle=rgba(st.c,oi===0?.14:.09);ctx.fill();ctx.stroke();
+          ctx.restore();
+        });
+      }
+
+      // Arrow to next
+      if(i<3){
+        const nx=structs[i+1].x;
+        ctx.save();ctx.strokeStyle=rgba(P.cream,.12);ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(st.x+52,cy);ctx.lineTo(nx-52,cy);ctx.stroke();
+        const aw=4+sin(T*.04+i)*.5*2;
+        ctx.fillStyle=rgba(P.cream,.2);
+        ctx.beginPath();ctx.moveTo(nx-55,cy-5);ctx.lineTo(nx-48+aw,cy);ctx.lineTo(nx-55,cy+5);ctx.fill();
+        ctx.restore();
+      }
+
+      serif(st.l,st.x,cy+86,st.c,18);
+      txt(st.s,st.x,cy+106,rgba(st.c,.7),9,'center',300);
+    });
+
+    // Bottom note
+    ctx.save();ctx.globalAlpha=.55;
+    pill(cx-310,H*.86-14,620,28,5,rgba(P.rose,.08),rgba(P.rose,.4),1,0);
+    txt('Misfolding → Spongiform Encephalopathy · Amyloidosis   |   Globular: enzymes, Hb   ·   Fibrous: collagen, keratin',cx,H*.86,rgba(P.cream,.6),9,'center',300);
+    ctx.restore();
+  }
+},
+{
+  name:'Thank You',
+  title:'Thank You',
+  body:'We hope this presentation gave you a clear and memorable journey through protein synthesis — from DNA all the way to a folded, functional protein.',
+  draw(){
+    const cx=W*.5, cy=H*.42;
+
+    // Large warm glow
+    glow(cx,cy,H*.55,P.amber,.13+sin(T*.018)*.04);
+    glow(cx,cy,H*.28,P.gold,.18+sin(T*.024)*.05);
+
+    // Orbiting dots — like the intro but slower and golden
+    for(let i=0;i<6;i++){
+      const ang=T*.006+i*(TAU/6);
+      const r=Math.min(W,H)*.28;
+      const ox=cx+Math.cos(ang)*r, oy=cy+Math.sin(ang)*r*.55;
+      const sz=3+sin(T*.04+i)*1.2;
+      glow(ox,oy,40,P.gold,.18);
+      ctx.save();ctx.shadowColor=P.gold;ctx.shadowBlur=14;
+      ctx.beginPath();ctx.arc(ox,oy,Math.max(sz,1),0,TAU);
+      ctx.fillStyle=P.gold;ctx.fill();ctx.restore();
+      // connecting line to centre
+      ctx.save();ctx.strokeStyle=rgba(P.gold,.08);ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ox,oy);ctx.stroke();ctx.restore();
+    }
+
+    // DNA helix — small, centred, decorative
+    dnaHelix(cx,cy,220,.6);
+
+    // Main thank you text
+    ctx.save();
+    ctx.font=`300 ${clamp(W*.072,60,110)}px 'Crimson Pro',serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    // Gradient text
+    const tg=ctx.createLinearGradient(cx-200,cy-60,cx+200,cy+60);
+    tg.addColorStop(0,P.gold);tg.addColorStop(.5,P.cream);tg.addColorStop(1,P.amber);
+    ctx.fillStyle=tg;
+    ctx.shadowColor=P.amber;ctx.shadowBlur=30;
+    ctx.fillText('Thank You',cx,cy-20);
+    ctx.restore();
+
+    // Italic subtitle
+    ctx.save();
+    ctx.font=`italic 300 ${clamp(W*.022,17,26)}px 'Crimson Pro',serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=rgba(P.cream,.5);
+    ctx.fillText('Unit III  ·  Biology  ·  Protein Synthesis',cx,cy+52);
+    ctx.restore();
+
+    // Member line
+    const members=['Pratik','Satyam','Aaryan','Ashu','Bhavishya','Kushagra'];
+    const spacing=Math.min(W*.15,130);
+    const startX=cx-(members.length-1)*spacing/2;
+    members.forEach((m,i)=>{
+      const mx=startX+i*spacing;
+      const bob=sin(T*.03+i*.9)*5;
+      glow(mx,cy+125+bob,40,P.amber,.16);
+      pill(mx-48,cy+107+bob,96,34,17,rgba(P.amber,.12),rgba(P.amber,.45),1.5,8);
+      txt(m,mx,cy+124+bob,rgba(P.cream,.9),13,'center',500);
+    });
+
+    // Bottom divider line
+    ctx.save();
+    const lg=ctx.createLinearGradient(cx-280,0,cx+280,0);
+    lg.addColorStop(0,'rgba(212,145,90,0)');
+    lg.addColorStop(.5,'rgba(212,145,90,.4)');
+    lg.addColorStop(1,'rgba(212,145,90,0)');
+    ctx.strokeStyle=lg;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx-280,cy+78);ctx.lineTo(cx+280,cy+78);ctx.stroke();
+    ctx.restore();
+  }
+},
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let T=0,si=0,paused=false,started=false;
+let trans={phase:'idle',alpha:0,target:0}; // phase: idle | out | in
+
+// ═══════════════════════════════════════════════
+// BUILD DOTS & UI
+// ═══════════════════════════════════════════════
+const dotsEl=document.getElementById('dots');
+SCENES.forEach((_,i)=>{
+  const d=document.createElement('div');d.className='dot'+(i===0?' on':'');
+  d.addEventListener('click',()=>{if(started)goTo(i);});
+  dotsEl.appendChild(d);
+});
+
+function updateUI(){
+  const s=SCENES[si];
+  document.getElementById('scene-name').textContent=s.name;
+  document.getElementById('scene-act-label').textContent=s.name;
+  document.getElementById('scene-title').textContent=s.title;
+  document.getElementById('scene-body').textContent=s.body;
+  document.getElementById('scene-counter').textContent=`${si+1} / ${SCENES.length}`;
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===si));
+  document.getElementById('btn-prev').disabled=si===0;
+  document.getElementById('btn-next').textContent=si===SCENES.length-1?'✓ Done':'Next →';
+  document.getElementById('btn-next').disabled=si===SCENES.length-1;
+  document.getElementById('prog-fill').style.width=((si/(SCENES.length-1))*100)+'%';
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function goTo(i){
+  if(trans.phase!=='idle')return; // block double-clicks mid-transition
+  spawnBurst(ACCENTS[i]||'#d4915a');
+  document.getElementById('bottombar').style.setProperty('--accent-col',ACCENTS[i]||'#d4915a');
+  trans.phase='out';
+  trans.alpha=0;
+  trans.target=i;
+}
+
+document.getElementById('go').addEventListener('click',()=>{
+  started=true;
+  const s=document.getElementById('splash');
+  s.style.opacity='0';setTimeout(()=>s.style.display='none',1400);
+  updateUI();
+});
+document.getElementById('btn-next').addEventListener('click',()=>{if(si<SCENES.length-1)goTo(si+1);});
+document.getElementById('btn-prev').addEventListener('click',()=>{if(si>0)goTo(si-1);});
+document.getElementById('btn-pause').addEventListener('click',()=>{
+  paused=!paused;
+  document.getElementById('btn-pause').textContent=paused?'▶ Play':'⏸ Pause';
+});
+
+// ═══════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════
+const FADE=0.08; // transition speed per frame
+
+function loop(){
+  requestAnimationFrame(loop);
+  ctx.clearRect(0,0,W,H);
+  drawBG();
+  if(!started)return;
+  if(!paused)T++;
+
+  SCENES[si].draw();
+  updateBursts();
+
+  // ── Fade-out → switch → fade-in ──
+  if(trans.phase==='out'){
+    trans.alpha=Math.min(trans.alpha+FADE,1);
+    ctx.fillStyle=`rgba(6,9,16,${trans.alpha})`;
+    ctx.fillRect(0,0,W,H);
+    if(trans.alpha>=1){
+      si=trans.target;
+      updateUI();
+      trans.phase='in';
+    }
+  }
+  else if(trans.phase==='in'){
+    // redraw new scene first, then overlay fading black on top
+    ctx.clearRect(0,0,W,H);
+    drawBG();
+    SCENES[si].draw();
+    trans.alpha=Math.max(trans.alpha-FADE,0);
+    ctx.fillStyle=`rgba(6,9,16,${trans.alpha})`;
+    ctx.fillRect(0,0,W,H);
+    if(trans.alpha<=0)trans.phase='idle';
+  }
+}
+loop();
+</script>
+</body>
+</html>
